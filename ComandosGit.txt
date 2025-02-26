@@ -8,6 +8,7 @@ git init											# inicializar um repositorio git novo ou reiniciar o existent
 git status											# mostra o status do repositorio, se há ou não algum arquivo para adicionar no stage e depois fazer o commit
 git remote -v 						# verificar para onde seu repositório está enviando os commits
 git add <nome-do-arquivo>							# adiciona o arquivo no stage. OBS: para adicionar todos os arquivos basta escrever . no lugar do nome do arquivo
+git config --global alias.autores "log --pretty=format:'%h - %an - %s'"		# cria atalho para acessar informacoes apenas digitando "git autores"
 git rm --cached <nome-do-arquivo>					# retirar o arquivo do stage, voltando para edição
 git commit -m "mensagem"							# fazer o commit passand uma mensagem sobre o commit
 git log												# exibe o hostorico de commit
