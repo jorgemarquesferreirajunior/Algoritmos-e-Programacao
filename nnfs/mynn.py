@@ -11,7 +11,7 @@ import numpy as np
 
 # Camada totalmente conectada (densa)
 class Camada_Densa:
-    def __init__(self, qtd_entradas: int = 1, qtd_neuronios: int = 1, verbose=True) -> None:
+    def __init__(self, qtd_entradas: int = 1, qtd_neuronios: int = 1, verbose=False) -> None:
         """
         Inicializa pesos e vieses da camada com valores aleatórios pequenos.
 
@@ -35,7 +35,7 @@ class Camada_Densa:
         print(self.matriz_vieses, "\n")
 
     # Propagação direta (forward pass)
-    def propagacao(self, entradas: np.ndarray, verbose=True) -> None:
+    def propagacao(self, entradas: np.ndarray, verbose=False) -> None:
         """
         Executa a propagação direta da camada.
 
@@ -51,7 +51,7 @@ class Camada_Densa:
             print(f"Propagação:\n{self.matriz_saidas}\n")
 
     # Retropropagação (backward pass)
-    def retropropagacao(self, dvalores: np.ndarray, verbose=True) -> None:
+    def retropropagacao(self, dvalores: np.ndarray, verbose=False) -> None:
         """
         Executa a retropropagação da camada densa, calculando os gradientes.
 
@@ -72,9 +72,9 @@ class Camada_Densa:
             print(self.matriz_dvieses, "\n")
 
 
-# Função de ativação ReLU
+# Classe de ativação ReLU
 class FaRelu:
-    def propagacao(self, entradas: np.ndarray, verbose=True) -> None:
+    def propagacao(self, entradas: np.ndarray, verbose=False) -> None:
         """
         Aplica a função de ativação ReLU.
 
@@ -87,7 +87,7 @@ class FaRelu:
         if verbose:
             print(f"Propagação ReLU:\n{self.matriz_saidas}")
 
-    def retropropagacao(self, dvalores: np.ndarray, verbose=True) -> None:
+    def retropropagacao(self, dvalores: np.ndarray, verbose=False) -> None:
         """
         Retropropagação da ReLU: calcula gradientes com base nas entradas.
 
@@ -109,7 +109,7 @@ class FaSoftmax():
         maiores_valores = np.max(entradas, axis=1, keepdims=True)
         
         # Calcula o exponencial dos valores ajustados
-        exponencial_valores = np.exp(entradas - maiores_valores)
+        exponencial_valores = np.exp(self.matriz_entradas - maiores_valores)
         
         # Normaliza os valores exponenciais para que somem 1 (probabilidades)
         self.matriz_saidas = exponencial_valores / np.sum(exponencial_valores, axis=1, keepdims=True)
@@ -133,7 +133,7 @@ class FaSoftmax():
 
 
 
-# Funções de perda
+# Classes de perda
 class Perda:
     def calcular(self, saidas_previstas: np.ndarray, saidas_reais: np.ndarray) -> np.ndarray:
         """
@@ -225,3 +225,13 @@ class Perda_FaSoftmax_EntropiaCategoricaCruzada():
         self.matriz_dentradas[range(qtd_amostras), saidas_reais] -= 1
         # Divide pela quantidade de amostras para normalizar o gradiente
         self.matriz_dentradas /= qtd_amostras
+
+
+# classes de otimizacao
+class otimizadorSGD:
+    def __init__(self, taxa_aprendizagem : float = 1.0) -> None:
+        self.taxa_aprendizagem = taxa_aprendizagem
+
+    def atualiza_parametros(self, camada : Camada_Densa):
+        camada.matriz_pesos += - self.taxa_aprendizagem * camada.matriz_dpesos
+        camada.matriz_vieses += - self.taxa_aprendizagem * camada.matriz_dvieses
