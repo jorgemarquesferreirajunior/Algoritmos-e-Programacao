@@ -229,9 +229,19 @@ class Perda_FaSoftmax_EntropiaCategoricaCruzada():
 
 # classes de otimizacao
 class otimizadorSGD:
-    def __init__(self, taxa_aprendizagem : float = 1.0) -> None:
+    def __init__(self, taxa_aprendizagem : float = 1.0, decaimento : float = 0.0) -> None:
         self.taxa_aprendizagem = taxa_aprendizagem
+        self.taxa_aprendizagem_atual = taxa_aprendizagem
+        self.decaimento = decaimento
+        self.iteracoes = 0
+
+    def prepara_parametros(self):
+        if self.decaimento:
+            self.taxa_aprendizagem_atual = self.taxa_aprendizagem * (1 / (1 + self.decaimento * self.iteracoes))
 
     def atualiza_parametros(self, camada : Camada_Densa):
-        camada.matriz_pesos += - self.taxa_aprendizagem * camada.matriz_dpesos
-        camada.matriz_vieses += - self.taxa_aprendizagem * camada.matriz_dvieses
+        camada.matriz_pesos += - self.taxa_aprendizagem_atual * camada.matriz_dpesos
+        camada.matriz_vieses += - self.taxa_aprendizagem_atual * camada.matriz_dvieses
+
+    def reprepara_parametros(self):
+        self.iteracoes += 1
