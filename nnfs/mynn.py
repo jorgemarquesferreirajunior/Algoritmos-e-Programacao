@@ -23,6 +23,8 @@ class Camada_Densa:
         self.matriz_pesos = np.random.randn(qtd_entradas, qtd_neuronios) * 0.01
         # Vieses inicializados com zero
         self.matriz_vieses = np.zeros(shape=(1, qtd_neuronios))
+        # self.momento_pesos = np.zeros_like(self.matriz_pesos)
+        # self.momento_vieses = np.zeros_like(self.matriz_vieses)
 
         if verbose:
             self.show_init()
@@ -229,19 +231,171 @@ class Perda_FaSoftmax_EntropiaCategoricaCruzada():
 
 # classes de otimizacao
 class otimizadorSGD:
-    def __init__(self, taxa_aprendizagem : float = 1.0, decaimento : float = 0.0) -> None:
+    def __init__(self, taxa_aprendizagem : float = 1.0, decaimento : float = 0.0, momento : float = 0.0) -> None:
+        # Taxa de aprendizado inicial
         self.taxa_aprendizagem = taxa_aprendizagem
+        # Taxa de aprendizado ajustada com decaimento (sera atualizada a cada iteracao)
         self.taxa_aprendizagem_atual = taxa_aprendizagem
+        # Fator de decaimento (reduz gradualmente a taxa de aprendizado)
         self.decaimento = decaimento
+        # Contador de iteracoes (usado para o calculo do decaimento)
         self.iteracoes = 0
+        # Fator de momento (ajuda a suavizar as atualizacoes e acelerar o treinamento)
+        self.momento = momento
+
 
     def prepara_parametros(self):
+         # Ajusta a taxa de aprendizado com base no decaimento e no numero de iteracoes
         if self.decaimento:
             self.taxa_aprendizagem_atual = self.taxa_aprendizagem * (1 / (1 + self.decaimento * self.iteracoes))
 
     def atualiza_parametros(self, camada : Camada_Densa):
-        camada.matriz_pesos += - self.taxa_aprendizagem_atual * camada.matriz_dpesos
-        camada.matriz_vieses += - self.taxa_aprendizagem_atual * camada.matriz_dvieses
+        # Se o momento esta ativado, aplica a atualizacao com base no vetor de momento
+        if self.momento:
+            # Inicializa os vetores de momento se nao existirem ainda na camada
+            if not hasattr(camada, 'momento_pesos'):
+                camada.momento_pesos = np.zeros_like(camada.matriz_pesos)
+                camada.momento_vieses = np.zeros_like(camada.matriz_vieses)
+
+            # Calcula a atualizacao dos pesos com momento
+            pesos_atualizados = self.momento * camada.momento_pesos - self.taxa_aprendizagem_atual * camada.matriz_dpesos
+            camada.momento_pesos = pesos_atualizados
+
+            # Calcula a atualizacao dos vieses com momento
+            vieses_atualizados = self.momento * camada.momento_vieses - self.taxa_aprendizagem_atual * camada.matriz_dvieses
+            camada.momento_vieses = vieses_atualizados
+        else:
+            # Atualizacao padrao do SGD sem uso de momento
+            pesos_atualizados = - self.taxa_aprendizagem_atual * camada.matriz_dpesos
+            vieses_atualizados = - self.taxa_aprendizagem_atual * camada.matriz_dvieses
+
+        # Aplica as atualizacoes aos pesos e vieses da camada
+        camada.matriz_pesos += pesos_atualizados
+        camada.matriz_vieses += vieses_atualizados
 
     def reprepara_parametros(self):
+         # Incrementa o contador de iteracoes para ajuste da taxa de aprendizado
+        self.iteracoes += 1
+
+class otimizadorAdaGrad:
+    def __init__(self, taxa_aprendizagem : float = 1.0, decaimento : float = 0.0, epsilon : float = 1e-7) -> None:
+        # Taxa de aprendizado inicial
+        self.taxa_aprendizagem = taxa_aprendizagem
+        # Taxa de aprendizado ajustada com decaimento (sera atualizada a cada iteracao)
+        self.taxa_aprendizagem_atual = taxa_aprendizagem
+        # Fator de decaimento (reduz gradualmente a taxa de aprendizado)
+        self.decaimento = decaimento
+        # Contador de iteracoes (usado para o calculo do decaimento)
+        self.iteracoes = 0
+
+        self.epsilon = epsilon
+
+
+    def prepara_parametros(self):
+         # Ajusta a taxa de aprendizado com base no decaimento e no numero de iteracoes
+        if self.decaimento:
+            self.taxa_aprendizagem_atual = self.taxa_aprendizagem * (1 / (1 + self.decaimento * self.iteracoes))
+
+    def atualiza_parametros(self, camada : Camada_Densa):
+
+        if not hasattr(camada, 'cache_pesos'):
+            camada.cache_pesos = np.zeros_like(camada.matriz_pesos)
+            camada.cache_vieses = np.zeros_like(camada.matriz_vieses)
+
+        camada.cache_pesos += camada.matriz_dpesos ** 2 
+        camada.cache_vieses += camada.matriz_dvieses ** 2 
+
+        # Aplica as atualizacoes aos pesos e vieses da camada
+        camada.matriz_pesos += - self.taxa_aprendizagem_atual * camada.matriz_dpesos / (np.sqrt(camada.cache_pesos) + self.epsilon)
+        camada.matriz_vieses += - self.taxa_aprendizagem_atual * camada.matriz_dvieses / (np.sqrt(camada.cache_vieses) + self.epsilon)
+
+    def reprepara_parametros(self):
+         # Incrementa o contador de iteracoes para ajuste da taxa de aprendizado
+        self.iteracoes += 1
+
+class otimizadorRMSProp:
+    def __init__(self, taxa_aprendizagem : float = 0.001, decaimento : float = 0.0, epsilon : float = 1e-7, rho : float = 0.9) -> None:
+        # Taxa de aprendizado inicial
+        self.taxa_aprendizagem = taxa_aprendizagem
+        # Taxa de aprendizado ajustada com decaimento (sera atualizada a cada iteracao)
+        self.taxa_aprendizagem_atual = taxa_aprendizagem
+        # Fator de decaimento (reduz gradualmente a taxa de aprendizado)
+        self.decaimento = decaimento
+        # Contador de iteracoes (usado para o calculo do decaimento)
+        self.iteracoes = 0
+
+        self.epsilon = epsilon
+
+        self.rho = rho
+
+
+    def prepara_parametros(self):
+         # Ajusta a taxa de aprendizado com base no decaimento e no numero de iteracoes
+        if self.decaimento:
+            self.taxa_aprendizagem_atual = self.taxa_aprendizagem * (1 / (1 + self.decaimento * self.iteracoes))
+
+    def atualiza_parametros(self, camada : Camada_Densa):
+
+        if not hasattr(camada, 'cache_pesos'):
+            camada.cache_pesos = np.zeros_like(camada.matriz_pesos)
+            camada.cache_vieses = np.zeros_like(camada.matriz_vieses)
+
+        camada.cache_pesos = self.rho * camada.cache_pesos + (1 - self.rho) * camada.matriz_dpesos ** 2
+        camada.cache_vieses = self.rho * camada.cache_vieses + (1 - self.rho) * camada.matriz_dvieses ** 2
+
+        # Aplica as atualizacoes aos pesos e vieses da camada
+        camada.matriz_pesos += - self.taxa_aprendizagem_atual * camada.matriz_dpesos / (np.sqrt(camada.cache_pesos) + self.epsilon)
+        camada.matriz_vieses += - self.taxa_aprendizagem_atual * camada.matriz_dvieses / (np.sqrt(camada.cache_vieses) + self.epsilon)
+
+    def reprepara_parametros(self):
+         # Incrementa o contador de iteracoes para ajuste da taxa de aprendizado
+        self.iteracoes += 1
+
+class otimizadorAdam:
+    def __init__(self, taxa_aprendizagem : float = 0.001, decaimento : float = 0.0, epsilon : float = 1e-7, beta1 : float = 0.9, beta2 : float = 0.999) -> None:
+        # Taxa de aprendizado inicial
+        self.taxa_aprendizagem = taxa_aprendizagem
+        # Taxa de aprendizado ajustada com decaimento (sera atualizada a cada iteracao)
+        self.taxa_aprendizagem_atual = taxa_aprendizagem
+        # Fator de decaimento (reduz gradualmente a taxa de aprendizado)
+        self.decaimento = decaimento
+        # Contador de iteracoes (usado para o calculo do decaimento)
+        self.iteracoes = 0
+
+        self.epsilon = epsilon
+
+        self.beta_1 = beta1
+
+        self.beta_2 = beta2
+
+
+    def prepara_parametros(self):
+         # Ajusta a taxa de aprendizado com base no decaimento e no numero de iteracoes
+        if self.decaimento:
+            self.taxa_aprendizagem_atual = self.taxa_aprendizagem * (1 / (1 + self.decaimento * self.iteracoes))
+
+    def atualiza_parametros(self, camada : Camada_Densa):
+
+        if not hasattr(camada, 'cache_pesos'):
+            camada.cache_pesos = np.zeros_like(camada.matriz_pesos)
+            camada.momento_pesos = np.zeros_like(camada.matriz_pesos)
+            camada.cache_vieses = np.zeros_like(camada.matriz_vieses)
+            camada.momento_vieses = np.zeros_like(camada.matriz_vieses)
+
+        camada.momento_pesos = self.beta_1 * camada.momento_pesos + (1 - self.beta_1) * camada.matriz_dpesos
+        momento_pesos_corretos = camada.momento_pesos / (1 - self.beta_1 ** (self.iteracoes + 1))
+        camada.momento_vieses = self.beta_1 * camada.momento_vieses + (1 - self.beta_1) * camada.matriz_dvieses
+        momento_vieses_corretos = camada.momento_vieses / (1 - self.beta_1 ** (self.iteracoes + 1))
+        
+        camada.cache_pesos = self.beta_2 * camada.cache_pesos + (1 - self.beta_2) * camada.matriz_dpesos ** 2
+        cache_pesos_corretos = camada.cache_pesos / (1 - self.beta_2 ** (self.iteracoes + 1))
+        camada.cache_vieses = self.beta_2 * camada.cache_vieses + (1 - self.beta_2) * camada.matriz_dvieses ** 2
+        cache_vieses_corretos = camada.cache_vieses / (1 - self.beta_2 ** (self.iteracoes + 1))
+
+        # Aplica as atualizacoes aos pesos e vieses da camada
+        camada.matriz_pesos += - self.taxa_aprendizagem_atual * momento_pesos_corretos / (np.sqrt(cache_pesos_corretos) + self.epsilon)
+        camada.matriz_vieses += - self.taxa_aprendizagem_atual * momento_vieses_corretos / (np.sqrt(cache_vieses_corretos) + self.epsilon)
+
+    def reprepara_parametros(self):
+         # Incrementa o contador de iteracoes para ajuste da taxa de aprendizado
         self.iteracoes += 1
