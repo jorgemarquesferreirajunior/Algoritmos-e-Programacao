@@ -9,8 +9,10 @@
 // Definições e constantes Modbus
 #define SLAVE_ADDRRES           0x06            // Endereço Modbus do escravo
 #define BAUDRATE                9600            // Taxa de comunicação em bps (funciona bem até 9600 bps)
-#define N_COILS                 0x05            // Quantidade de coils
+#define N_COILS                 0x06            // Quantidade de coils
 #define START_ADDR_COILS        0x10            // Endereco inicial das coils
+#define N_DINPUTS               0x06            // Quantidade de discrete inputs
+#define START_ADDR_DINPUTS      0x20            // Endereco inicial das discrete inputs
 #define BROADCAST_ADDRESS       0x00            // Endereco de broadcast
 #define LED2_STATUS             0x0C            // LED2 usado para indicar funcionamento do protocolo
 #define LED1                    0x05            // LED1 no pino 5 do shield, representa o coil
@@ -22,8 +24,11 @@ unsigned int endFrameTime;                      // Armazena o tempo decorrido ap
 unsigned long tempTime;
 byte receivedData[20];                          // Buffer de recepcao, armazena os bytes do quadro recebido
 byte respData[20];                              // Buffer de resposta, vetor para montagem das respostas às requisições
-const int COILS_MAP[N_COILS] =                  // Mapeamento de hardware
-                                {3,6,13,10,11};
+
+// Mapeamento de hardware
+const int COILS_MAP[N_COILS]    = {8,9,10,11,12,13};
+const int DINPUTS_MAP[N_DINPUTS]= {2,3,4,5,6,7};
+
 
 /*
     TESTES FUNCAO 0x01 : WRITE SINGLE COIL
@@ -53,10 +58,14 @@ const int COILS_MAP[N_COILS] =                  // Mapeamento de hardware
 */
 
 /*
+    ///////////////////////////////////////
     TESTES FUNCAO 0x01 : READ COILS
+    //////////////////////////////////////
+
     0x06 0x01 0x00 0x10 0x00 0x04 0x3d 0xbb
     0x06 0x01 0x00 0x12 0x00 0x03 0xdd 0xb9
     0x06 0x01 0x00 0x10 0x00 0x05 0xfc 0x7b
+    0x06 0x01 0x00 0x14 0x00 0x05 0xbd 0xba
 
     Teste excecao 0x01: Funcao invalida
     0x06 0x0d 0x00 0x10 0x00 0x04 0x2d 0xba
@@ -66,7 +75,24 @@ const int COILS_MAP[N_COILS] =                  // Mapeamento de hardware
 
     Teste excecao 0x03: Valor invalido
     0x06 0x01 0x00 0x10 0x00 0x0a 0xbc 0x7f
-    
+
+    /////////////////////////////////////////
+    TESTES FUNCAO 0x02 : READ DISCRETE INPUTS
+    /////////////////////////////////////////
+
+    0x06 0x02 0x00 0x20 0x00 0x06 0xf8 0x75
+    0x06 0x02 0x00 0x21 0x00 0x05 0xe9 0xb4
+    0x06 0x02 0x00 0x25 0x00 0x06 0xe8 0x74
+
+    Teste excecao 0x01: Funcao invalida
+    0x06 0x0c 0x00 0x20 0x00 0x06 0x91 0xb4
+
+    Teste excecao 0x02: Endereco invalido
+    0x06 0x02 0x00 0x26 0x00 0x06 0x18 0x74
+
+    Teste excecao 0x03: Valor invalido
+    0x06 0x02 0x00 0x20 0x00 0x07 0x39 0xb5
+
 
 */
 
@@ -74,6 +100,7 @@ const int COILS_MAP[N_COILS] =                  // Mapeamento de hardware
 void awaitFrame(int* recv_bytes);
 void writeSingleCoil(byte* data, int qtd_bytes);
 void readCoils(byte* data);
+void readDiscreteInputs(byte* data);
 void sendException(byte* data, byte code);
 void blink(unsigned short pin, unsigned long period, unsigned short reps);
 
@@ -82,9 +109,8 @@ void setup() {
     Serial.begin(BAUDRATE, SERIAL_8N2);         // Inicia a comunicação serial com configuração 8N2
 
     // Configuração do hardware
-    pinMode(LED2_STATUS, OUTPUT);
-    pinMode(LED1, OUTPUT);
-    pinMode(LED_BUILTIN, OUTPUT);
+    for (unsigned short i = 0; i < N_COILS; i++) pinMode(COILS_MAP[i], OUTPUT);
+    for (unsigned short i = 0; i < N_DINPUTS; i++) pinMode(DINPUTS_MAP[i], INPUT_PULLUP);
 
     // Inicializacao dos vetores de recebimento e resposta
     memset(receivedData, 0x00, sizeof(receivedData));
@@ -129,6 +155,10 @@ void loop() {
             {
             case 0x01: // Funcao valida: Leitura de coils
                 readCoils(receivedData);
+                break;
+
+            case 0x02: // Funcao valida: Leitura de discrete inputs
+                readDiscreteInputs(receivedData);
                 break;
 
             case 0x05: // Funcao valida: Escrita de coils
@@ -228,8 +258,9 @@ void readCoils(byte* data) {
     // validacao do endereco do registrador
     if (start_addr >= START_ADDR_COILS && start_addr < (START_ADDR_COILS + N_COILS)) {
         // validadcao da quantidade de coils a serem lidas
-        if (qty_coils > 0x00 && qty_coils <= N_COILS) {
-            // qunatidade de bytes necessario
+        unsigned short coils_available = N_COILS - (start_addr - START_ADDR_COILS);
+        if (qty_coils > 0x00 && qty_coils <= coils_available) {
+            // quantidade de bytes necessario
             byte byte_count = (qty_coils + 7) / 8;
             
             respData[0] = data[0];
@@ -245,6 +276,59 @@ void readCoils(byte* data) {
             for (unsigned short i = 0; i < qty_coils; i++){
                 int coil_index = start_addr - START_ADDR_COILS + i;
                 if (digitalRead(COILS_MAP[coil_index])) {
+                    respData[3 + (i / 8)] |= (1 << (i % 8));
+                }
+            }
+
+            valueCrc = crc.Modbus(respData, 0, 3 + byte_count);
+            respData[3 + byte_count] = valueCrc & 0xFF;
+            respData[4 + byte_count] = (valueCrc >> 8) & 0xFF;
+
+            if (data[0] != BROADCAST_ADDRESS) {
+                Serial.write(respData, 5 + byte_count);
+            }
+
+        }
+        else {
+            // erro de excecao (valor invalido): 0x03
+            sendException(data, 0x03);
+        }
+    }
+    else {
+        // erro de excecao (endereco invalido): 0x02 
+        sendException(data, 0x02);
+    }
+}
+
+/*******************************************************************************************************/
+/*******************************************************************************************************/
+/*******************************************************************************************************/
+
+void readDiscreteInputs(byte* data) {
+    unsigned short start_addr = (data[2] << 8) + data[3];
+    unsigned short qty_dinputs  = (data[4] << 8) + data[5];
+
+    // validacao do endereco do registrador
+    if (start_addr >= START_ADDR_DINPUTS && start_addr < (START_ADDR_DINPUTS + N_DINPUTS)) {
+        // validadcao da quantidade de discrete inputs a serem lidas
+        unsigned short inputs_available = N_DINPUTS - (start_addr - START_ADDR_DINPUTS);
+        if (qty_dinputs > 0x00 && qty_dinputs <= inputs_available) {
+            // quantidade de bytes necessario
+            byte byte_count = (qty_dinputs + 7) / 8;
+            
+            respData[0] = data[0];
+            respData[1] = data[1];
+            respData[2] = byte_count;
+
+            // Inicializacao dos bytes de status das discrete input
+            for (int i = 0; i < byte_count; i++) {
+                respData[3 + i] = 0x00;
+            }
+
+            // Leitura de cada discrete input
+            for (unsigned short i = 0; i < qty_dinputs; i++){
+                int dinput_index = start_addr - START_ADDR_DINPUTS + i;
+                if (digitalRead(DINPUTS_MAP[dinput_index])) {
                     respData[3 + (i / 8)] |= (1 << (i % 8));
                 }
             }
