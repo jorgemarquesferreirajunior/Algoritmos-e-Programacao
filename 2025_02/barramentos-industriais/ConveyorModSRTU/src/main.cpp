@@ -26,12 +26,22 @@ const int COILS_MAP[N_COILS] =                  // Mapeamento de hardware
                                 {3,6,13,10,11};
 
 /*
-    Liga led 13
+    TESTES FUNCAO 0x01 : WRITE SINGLE COIL
+
+    Liga
+    0x06 0x05 0x00 0x10 0xff 0x00 0x8c 0x48
+    0x06 0x05 0x00 0x11 0xff 0x00 0xdd 0x88
     0x06 0x05 0x00 0x12 0xff 0x00 0x2d 0x88
-    
-    Desliga led 13
+    0x06 0x05 0x00 0x13 0xff 0x00 0x7c 0x48
+    0x06 0x05 0x00 0x14 0xff 0x00 0xcd 0x89
+
+    Desliga
+    0x06 0x05 0x00 0x10 0x00 0x00 0xcd 0xb8
+    0x06 0x05 0x00 0x11 0x00 0x00 0x9c 0x78
     0x06 0x05 0x00 0x12 0x00 0x00 0x6c 0x78
-    
+    0x06 0x05 0x00 0x13 0x00 0x00 0x3d 0xb8
+    0x06 0x05 0x00 0x14 0x00 0x00 0x8c 0x79
+
     Teste excecao 0x01: Funcao invalida
     0x06 0x0d 0x00 0x12 0xff 0x00 0xcc 0x49
 
@@ -42,9 +52,28 @@ const int COILS_MAP[N_COILS] =                  // Mapeamento de hardware
     0x06 0x05 0x00 0x12 0xff 0x02 0xac 0x49
 */
 
+/*
+    TESTES FUNCAO 0x01 : READ COILS
+    0x06 0x01 0x00 0x10 0x00 0x04 0x3d 0xbb
+    0x06 0x01 0x00 0x12 0x00 0x03 0xdd 0xb9
+    0x06 0x01 0x00 0x10 0x00 0x05 0xfc 0x7b
+
+    Teste excecao 0x01: Funcao invalida
+    0x06 0x0d 0x00 0x10 0x00 0x04 0x2d 0xba
+
+    Teste excecao 0x02: Endereco invalido
+    0x06 0x01 0x00 0x09 0x00 0x04 0xec 0x7c
+
+    Teste excecao 0x03: Valor invalido
+    0x06 0x01 0x00 0x10 0x00 0x0a 0xbc 0x7f
+    
+
+*/
+
 // Prototipos
 void awaitFrame(int* recv_bytes);
 void writeSingleCoil(byte* data, int qtd_bytes);
+void readCoils(byte* data);
 void sendException(byte* data, byte code);
 void blink(unsigned short pin, unsigned long period, unsigned short reps);
 
@@ -92,12 +121,16 @@ void loop() {
     // Se o CRC estiver correto (valor calculado == 0), o quadro é válido
     if (valueCrc == 0) {
         // Pisca o LED de status
-        blink(LED2_STATUS, 250, 1);
+        // blink(LED2_STATUS, 250, 1);
         // Verifica se o endereço é correspondente ao do escravo ou é um broadcast
         if (receivedData[0] == SLAVE_ADDRRES || receivedData[0] == 0) {
             // Verifica a funcao correspondente recebida no quadro 
             switch (receivedData[1])
             {
+            case 0x01: // Funcao valida: Leitura de coils
+                readCoils(receivedData);
+                break;
+
             case 0x05: // Funcao valida: Escrita de coils
                 writeSingleCoil(receivedData, bytesAvailable);
                 break;
@@ -166,8 +199,64 @@ void writeSingleCoil(byte* data, int qtd_bytes) {
     if (data_addr >= START_ADDR_COILS && data_addr < (START_ADDR_COILS + N_COILS)) {
         // validacao do valor do registrador
         if (data_value == 0x0000 || data_value == 0xFF00) {
+            // atualizacao da coil
             digitalWrite(COILS_MAP[data_addr - START_ADDR_COILS], data_value == 0xFF00 ? HIGH : LOW);
-            Serial.write(data, qtd_bytes);
+            
+            if (data[0] != BROADCAST_ADDRESS) {
+                Serial.write(data, qtd_bytes);
+            }
+        }
+        else {
+            // erro de excecao (valor invalido): 0x03
+            sendException(data, 0x03);
+        }
+    }
+    else {
+        // erro de excecao (endereco invalido): 0x02 
+        sendException(data, 0x02);
+    }
+}
+
+/*******************************************************************************************************/
+/*******************************************************************************************************/
+/*******************************************************************************************************/
+
+void readCoils(byte* data) {
+    unsigned short start_addr = (data[2] << 8) + data[3];
+    unsigned short qty_coils  = (data[4] << 8) + data[5];
+
+    // validacao do endereco do registrador
+    if (start_addr >= START_ADDR_COILS && start_addr < (START_ADDR_COILS + N_COILS)) {
+        // validadcao da quantidade de coils a serem lidas
+        if (qty_coils > 0x00 && qty_coils <= N_COILS) {
+            // qunatidade de bytes necessario
+            byte byte_count = (qty_coils + 7) / 8;
+            
+            respData[0] = data[0];
+            respData[1] = data[1];
+            respData[2] = byte_count;
+
+            // Inicializacao dos bytes de status das coils
+            for (int i = 0; i < byte_count; i++) {
+                respData[3 + i] = 0x00;
+            }
+
+            // Leitura de cada coil
+            for (unsigned short i = 0; i < qty_coils; i++){
+                int coil_index = start_addr - START_ADDR_COILS + i;
+                if (digitalRead(COILS_MAP[coil_index])) {
+                    respData[3 + (i / 8)] |= (1 << (i % 8));
+                }
+            }
+
+            valueCrc = crc.Modbus(respData, 0, 3 + byte_count);
+            respData[3 + byte_count] = valueCrc & 0xFF;
+            respData[4 + byte_count] = (valueCrc >> 8) & 0xFF;
+
+            if (data[0] != BROADCAST_ADDRESS) {
+                Serial.write(respData, 5 + byte_count);
+            }
+
         }
         else {
             // erro de excecao (valor invalido): 0x03
@@ -190,7 +279,7 @@ void sendException(byte* data, byte code) {
     respData[2] = code;
     valueCrc = crc.Modbus(respData, 0, 3);
     respData[3] = valueCrc & 0xFF;
-    respData[3] = (valueCrc >> 8) & 0xFF;
+    respData[4] = (valueCrc >> 8) & 0xFF;
 
     if (data[0] != BROADCAST_ADDRESS) {
         Serial.write(respData, 5);
