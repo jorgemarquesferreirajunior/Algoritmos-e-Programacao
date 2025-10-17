@@ -37,24 +37,32 @@ const unsigned short START_ADDR_DINPUTS = 0x20;
 const unsigned short START_ADDR_HREGS   = 0x30;
 const unsigned short START_ADDR_IREGS   = 0x40;
 
-// Pinout do hardware - saidas digitais
-extern const unsigned short STATUS_MOTOR    = 4;
-extern const unsigned short STATUS_RECVDATA = 26;
-extern const unsigned short STATUS_RESPDATA = 27;
-extern const unsigned short STATUS_MACHINE  = 32;
-extern const unsigned short RS485_ENABLE    = 33;
-// Pinout do hardware - entradas digitais
-extern const unsigned short INIT_PROCESS    = 13;
-extern const unsigned short PART_AT_ENTRY   = 16;
-extern const unsigned short PART_TYPE1      = 17;
-extern const unsigned short PART_TYPE2      = 18;
-extern const unsigned short PART_TYPE3      = 19;
-extern const unsigned short PART_AT_EXIT    = 21;
-extern const unsigned short BINARY_ADDR1    = 22;
-extern const unsigned short BINARY_ADDR2    = 23;
-extern const unsigned short BINARY_ADDR3    = 25;
-// Pinout do hardware - entradas analogicas
+// === ENTRADAS DIGITAIS (com INPUT_PULLUP) ===
+extern const unsigned short BINARY_ADDR1    = 16;
+extern const unsigned short BINARY_ADDR2    = 4;
+extern const unsigned short BINARY_ADDR3    = 15;
+extern const unsigned short INIT_PROCESS    = 17;
+extern const unsigned short PART_AT_ENTRY   = 5;
+extern const unsigned short PART_TYPE1      = 18;
+extern const unsigned short PART_TYPE2      = 19;
+extern const unsigned short PART_TYPE3      = 21;
+extern const unsigned short PART_AT_EXIT    = 22;
+
+// === SAÍDAS DIGITAIS ===
+extern const unsigned short STATUS_MOTOR    = 27;
+extern const unsigned short STATUS_RECVDATA = 25;
+extern const unsigned short STATUS_RESPDATA = 33;
+extern const unsigned short STATUS_MACHINE  = 26;
+extern const unsigned short RS485_ENABLE    = 32;
+
+// === ENTRADA ANALÓGICA ===
 extern const unsigned short IN_SPEED_MOTOR  = 34;
+// Pinout - saidas analogicas
+extern const unsigned short OUT_SPEED_MOTOR     = 0;
+extern const unsigned short OUT_QTY_PART_TYPE1  = 1;
+extern const unsigned short OUT_QTY_PART_TYPE2  = 2;
+extern const unsigned short OUT_QTY_PART_TYPE3  = 3;
+extern const unsigned short OUT_ACTUAL_ALARM    = 4;
 
 
 
@@ -66,6 +74,7 @@ byte COILS_MAP[N_COILS]                 = {
                                             RS485_ENABLE
                                           }; 
 byte DINPUTS_MAP[N_DINPUTS]             = {
+                                            INIT_PROCESS,
                                             PART_AT_ENTRY,
                                             PART_TYPE1,
                                             PART_TYPE2,
@@ -75,7 +84,7 @@ byte DINPUTS_MAP[N_DINPUTS]             = {
                                             BINARY_ADDR2,
                                             BINARY_ADDR3,
                                           };
-unsigned short HREGS_MAP[N_HREGS]       = {0, 0, 0};
+unsigned short HREGS_MAP[N_HREGS]       = {0};
 unsigned short IREGS_MAP[N_IREGS]       = {IN_SPEED_MOTOR};
 
 unsigned long endFrameTime              = 10;
