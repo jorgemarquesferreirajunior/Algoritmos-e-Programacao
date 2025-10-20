@@ -122,7 +122,7 @@ void setup()
 
     // Configuração do hardware
     for (unsigned short i = 0; i < N_COILS; i++) pinMode(COILS_MAP[i], OUTPUT);
-    for (unsigned short i = 0; i < N_DINPUTS; i++) pinMode(DINPUTS_MAP[i], INPUT_PULLDOWN);
+    for (unsigned short i = 0; i < N_DINPUTS; i++) pinMode(DINPUTS_MAP[i], INPUT_PULLUP);
 
 
     // task1

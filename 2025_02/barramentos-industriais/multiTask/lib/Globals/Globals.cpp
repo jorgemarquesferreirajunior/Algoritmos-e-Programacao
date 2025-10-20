@@ -18,17 +18,10 @@
 | 30001    | Input Reg.     | Velocidade atual do motor (potenciômetro) |
 
 
-| Tipo              | Pinos                          |
-| :---------------- | :----------------------------- |
-| Entradas digitais | 16, 17, 18, 19, 21, 22, 23, 25 |
-| Entrada analógica | 34                             |
-| Saídas digitais   | 26, 27, 32, 33                 |
-
-
 */
 
 // Definições das variáveis
-byte SLAVE_ADDRRES                      = 0x06;
+byte SLAVE_ADDRRES                      = 0x00;
 const byte BROADCAST_ADDRESS            = 0x00;
 const int BAUDRATE                      = 9600;
 
@@ -38,31 +31,35 @@ const unsigned short START_ADDR_HREGS   = 0x30;
 const unsigned short START_ADDR_IREGS   = 0x40;
 
 // === ENTRADAS DIGITAIS (com INPUT_PULLUP) ===
-extern const unsigned short BINARY_ADDR1    = 16;
-extern const unsigned short BINARY_ADDR2    = 4;
-extern const unsigned short BINARY_ADDR3    = 15;
-extern const unsigned short INIT_PROCESS    = 17;
+extern const unsigned short INIT_PROCESS    = 4;
 extern const unsigned short PART_AT_ENTRY   = 5;
-extern const unsigned short PART_TYPE1      = 18;
-extern const unsigned short PART_TYPE2      = 19;
-extern const unsigned short PART_TYPE3      = 21;
-extern const unsigned short PART_AT_EXIT    = 22;
+extern const unsigned short PART_TYPE1      = 15;
+extern const unsigned short PART_TYPE2      = 16;
+extern const unsigned short PART_TYPE3      = 17;
+extern const unsigned short PART_AT_EXIT    = 18;
+extern const unsigned short BINARY_ADDR1    = 19;
+extern const unsigned short BINARY_ADDR2    = 21;
+extern const unsigned short BINARY_ADDR3    = 22;
 
 // === SAÍDAS DIGITAIS ===
-extern const unsigned short STATUS_MOTOR    = 27;
+extern const unsigned short DIR1_MOTOR      = 12;
+extern const unsigned short DIR2_MOTOR      = 13;
 extern const unsigned short STATUS_RECVDATA = 25;
-extern const unsigned short STATUS_RESPDATA = 33;
-extern const unsigned short STATUS_MACHINE  = 26;
+extern const unsigned short STATUS_MOTOR    = 26;
+extern const unsigned short STATUS_MACHINE  = 27;
 extern const unsigned short RS485_ENABLE    = 32;
+extern const unsigned short STATUS_RESPDATA = 33;
 
-// === ENTRADA ANALÓGICA ===
+// === ENTRADAS ANALÓGICAS ===
 extern const unsigned short IN_SPEED_MOTOR  = 34;
-// Pinout - saidas analogicas
-extern const unsigned short OUT_SPEED_MOTOR     = 0;
-extern const unsigned short OUT_QTY_PART_TYPE1  = 1;
-extern const unsigned short OUT_QTY_PART_TYPE2  = 2;
-extern const unsigned short OUT_QTY_PART_TYPE3  = 3;
-extern const unsigned short OUT_ACTUAL_ALARM    = 4;
+// === SAÍDAS ANALÓGICAS ===
+extern const unsigned short PWM_SPEED_MOTOR = 14;
+// === SAIDAS VIRTUAIS ====
+extern const unsigned short OUT_SPEED_MOTOR       = 0; 
+extern const unsigned short OUT_QTY_PART_TYPE1    = 1;
+extern const unsigned short OUT_QTY_PART_TYPE2    = 2;
+extern const unsigned short OUT_QTY_PART_TYPE3    = 3;
+extern const unsigned short OUT_ACTUAL_ALARM      = 4;
 
 
 
@@ -71,7 +68,9 @@ byte COILS_MAP[N_COILS]                 = {
                                             STATUS_RECVDATA,
                                             STATUS_RESPDATA,
                                             STATUS_MACHINE,
-                                            RS485_ENABLE
+                                            RS485_ENABLE,
+                                            DIR1_MOTOR,
+                                            DIR2_MOTOR
                                           }; 
 byte DINPUTS_MAP[N_DINPUTS]             = {
                                             INIT_PROCESS,
@@ -80,9 +79,9 @@ byte DINPUTS_MAP[N_DINPUTS]             = {
                                             PART_TYPE2,
                                             PART_TYPE3,
                                             PART_AT_EXIT,
-                                            BINARY_ADDR1,
-                                            BINARY_ADDR2,
-                                            BINARY_ADDR3,
+                                            BINARY_ADDR1, // bit0 - lsb
+                                            BINARY_ADDR2, // bit1
+                                            BINARY_ADDR3, // bit2 - msb
                                           };
 unsigned short HREGS_MAP[N_HREGS]       = {0};
 unsigned short IREGS_MAP[N_IREGS]       = {IN_SPEED_MOTOR};

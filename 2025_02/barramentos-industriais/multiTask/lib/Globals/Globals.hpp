@@ -17,7 +17,7 @@ extern const unsigned short START_ADDR_HREGS;
 extern const unsigned short START_ADDR_IREGS;
 
 // Tamanhos dos arrays
-constexpr size_t N_COILS        = 5;
+constexpr size_t N_COILS        = 7;
 constexpr size_t N_DINPUTS      = 9;
 constexpr size_t N_HREGS        = 5; // velocidade do motor, qtd pecas tipo 1, qtd pecas tipo 2, qtd pecas tipo 3, id alarme
 constexpr size_t N_IREGS        = 1;
@@ -33,6 +33,8 @@ extern const unsigned short STATUS_RECVDAT;
 extern const unsigned short STATUS_RESPDATA;
 extern const unsigned short STATUS_MACHINE;
 extern const unsigned short RS485_ENABLE;
+extern const unsigned short DIR1_MOTOR;
+extern const unsigned short DIR2_MOTOR;
 // Pinout do hardware - entradas digitais
 extern const unsigned short INIT_PROCESS;
 extern const unsigned short PART_AT_ENTRY;
@@ -46,6 +48,8 @@ extern const unsigned short BINARY_ADDR3;
 // Pinout do hardware - entradas analogicas
 extern const unsigned short IN_SPEED_MOTOR;
 // Pinout - saidas analogicas
+extern const unsigned short PWM_SPEED_MOTOR;
+// === SAIDAS VIRTUAIS ====
 extern const unsigned short OUT_SPEED_MOTOR;
 extern const unsigned short OUT_QTY_PART_TYPE1;
 extern const unsigned short OUT_QTY_PART_TYPE2;

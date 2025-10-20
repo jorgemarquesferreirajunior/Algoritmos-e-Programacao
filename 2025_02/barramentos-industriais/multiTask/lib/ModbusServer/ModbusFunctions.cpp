@@ -1,4 +1,6 @@
 #include "ModbusFunctions.hpp"
+#include "Globals.hpp"
+#include "esp32-hal-gpio.h"
 #include <Crc16.hpp>
 
 /*******************************************************************************************************/
@@ -6,6 +8,8 @@
 /*******************************************************************************************************/
 
 void awaitFrame() {
+    digitalWrite(RS485_ENABLE, RECV_DATA);
+
     bytesAvailable = 0;
     // Variáveis locais
     long milisegundos;   // Controle de tempo de fim de quadro Modbus RTU
@@ -42,6 +46,7 @@ void awaitFrame() {
 /*******************************************************************************************************/
 
 void sendException(byte* data, byte code) {
+    digitalWrite(RS485_ENABLE, RESP_DATA);
     respData[0] = data[0];
     respData[1] = data[1] | 0x80;
     respData[2] = code;
@@ -93,6 +98,8 @@ void readCoils(byte* data) {
         sendException(data, ILLEGAL_ADDRESS);
         return;
     }
+
+    digitalWrite(RS485_ENABLE, RESP_DATA);
 
     // quantidade de bytes necessario
     byte byte_count = (qty_coils + 7) / 8;
@@ -150,6 +157,8 @@ void readDiscreteInputs(byte* data) {
         return;
     }
 
+    digitalWrite(RS485_ENABLE, RESP_DATA);
+
     // quantidade de bytes necessario
     byte byte_count = (qty_dinputs + 7) / 8;
     
@@ -206,6 +215,8 @@ void readHoldingRegisters(byte* data) {
         return;
     }
 
+    digitalWrite(RS485_ENABLE, RESP_DATA);
+
     // quantidade de bytes necessario
     byte byte_count = qty_regs * 2;
     
@@ -261,6 +272,8 @@ void readInputRegisters(byte* data) {
         return;
     }
     
+    digitalWrite(RS485_ENABLE, RESP_DATA);
+
     // quantidade de bytes necessario
     byte byte_count = qty_regs * 2;
     
@@ -313,6 +326,8 @@ void writeSingleCoil(byte* data) {
         sendException(data, ILLEGAL_ADDRESS);
         return;
     }
+
+    digitalWrite(RS485_ENABLE, RESP_DATA);
 
     // atualizacao da coil
     digitalWrite(

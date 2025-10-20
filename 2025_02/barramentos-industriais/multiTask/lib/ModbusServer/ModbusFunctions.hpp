@@ -3,6 +3,10 @@
 #include <Arduino.h>
 #include "Globals.hpp"
 
+#define RECV_DATA false // habilita a recepcao de dados no barramento
+#define RESP_DATA true // habilita o envio de dados no barramento
+
+
 void awaitFrame();
 void sendException(byte* data, byte code);
 void blink(unsigned short pin, unsigned long period, unsigned short reps);

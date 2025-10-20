@@ -68,9 +68,9 @@ void taskModbus(void *pvParameters) {
 
 void setSlaveAddress(void)
 {
-    SLAVE_ADDRRES = (digitalRead(DINPUTS_MAP[5]) << 0) |
-                    (digitalRead(DINPUTS_MAP[6]) << 1) |
-                    (digitalRead(DINPUTS_MAP[7]) << 2);
+    SLAVE_ADDRRES = (!digitalRead(DINPUTS_MAP[6]) << 0) |
+                    (!digitalRead(DINPUTS_MAP[7]) << 1) |
+                    (!digitalRead(DINPUTS_MAP[8]) << 2);
 }
 
 

@@ -4,25 +4,21 @@
 #include "HardwareSerial.h"
 #include "MyTasks.hpp"
 #include "Btn.hpp"
-#include "SimpleTimer.hpp"  // Nova classe
+#include "Ton.hpp"
 #include "DCMotor.hpp" 
 #include "esp32-hal-adc.h"
 #include "esp32-hal-gpio.h"
 #include "esp32-hal.h"
 
-// Constantes para os timeouts
-const unsigned long TIMEOUT_BLINK = 500;
-const unsigned long TIMEOUT_ENTRY = 10000;
-const unsigned long TIMEOUT_TYPE = 10000;
-const unsigned long TIMEOUT_EXIT = 10000;
-
 int step = 0;
-
-// Substitui TONs e variáveis por SimpleTimer
-SimpleTimer timer_blink(TIMEOUT_BLINK, false, "BLINK");     // Periódico (não one-shot)
-SimpleTimer timer_entry(TIMEOUT_ENTRY, true, "ENTRY");      // One-shot
-SimpleTimer timer_type(TIMEOUT_TYPE, true, "TYPE");         // One-shot
-SimpleTimer timer_exit(TIMEOUT_EXIT, true, "EXIT");         // One-shot
+TON ton_blink1(500);
+TON ton_entry_part(5000);
+TON ton_type_part(5000);
+TON ton_exit_part(5000);
+unsigned long timeout_blink_at_entry;
+unsigned long timeout_part_at_entry;
+unsigned long timeout_part_type;
+unsigned long timeout_part_at_exit;
 
 Btn btn_start_process(INIT_PROCESS, false);
 Btn btn_part_in_position(PART_AT_ENTRY, false);
@@ -41,11 +37,11 @@ enum AlarmCode {
 
 void taskConveyor(void *pvParameters)
 {
-    // Inicialização mais simples
-    timer_blink.reset();
-    timer_entry.reset();
-    timer_type.reset();
-    timer_exit.reset();
+    // Inicialização
+    ton_blink1.reset();
+    ton_entry_part.reset();
+    ton_type_part.reset();
+    ton_exit_part.reset();
 
     motor_conveyor.setSpeed(255);
     motor_conveyor.Stop();
@@ -59,43 +55,38 @@ void taskConveyor(void *pvParameters)
     motor_conveyor.setRampParameters(30, 3);
     
     delay(2000);
-    // Serial.println("Task Conveyor Iniciada");
+    Serial.println("Task Conveyor Iniciada");
 
     while (true)
     {
         // DEBUG: Verificar estados
         static unsigned long lastDebug = 0;
-        if (millis() - lastDebug > 1000 && 1 == 1) {
-            
-            // Serial.print("Step: ");
-            // Serial.print(step);
-            // Serial.print(" | Blink: ");
-            // Serial.print(timer_blink.isRunning() ? "RUN" : "STOP");
-            // Serial.print(" | Entry: ");
-            // Serial.print(timer_entry.isRunning() ? "RUN" : "STOP");
-            // Serial.print(" | Type: ");
-            // Serial.print(timer_type.isRunning() ? "RUN" : "STOP");
-            // Serial.print(" | Exit: ");
-            // Serial.println(timer_exit.isRunning() ? "RUN" : "STOP");
-            
-            // Serial.print("Entrada analogica: \t");
-            // Serial.println(map(analogRead(IN_SPEED_MOTOR), 0, 4095, 0, 255));
-            // Serial.print("Saida analogica:   \t");
-            // Serial.println(HREGS_MAP[OUT_SPEED_MOTOR]);
+        if (millis() - lastDebug > 2000) {
+            Serial.print("Step: ");
+            Serial.print(step);
+            Serial.print(" | Blink: ");
+            Serial.print(ton_blink1.done());
+            Serial.print(" | Entry: ");
+            Serial.print(ton_entry_part.done());
+            Serial.print(" | Type: ");
+            Serial.print(ton_type_part.done());
+            Serial.print(" | Exit: ");
+            Serial.println(ton_exit_part.done());
             lastDebug = millis();
         }
 
         if (btn_start_process.press()) {
-            // Serial.println("=== BOTÃO START PRESSIONADO ===");
-            
-            // RESET COMPLETO - muito mais simples
-            timer_blink.start();  // Inicia blink periódico
-            timer_entry.start();  // Inicia timeout de entrada
-            timer_type.reset();   // Reseta (para garantir)
-            timer_exit.reset();   // Reseta (para garantir)
+            Serial.println("=== BOTÃO START PRESSIONADO ===");
+            // RESET COMPLETO de todos os TONs
+            ton_blink1.reset();
+            ton_entry_part.reset();
+            ton_type_part.reset();
+            ton_exit_part.reset();
             
             HREGS_MAP[OUT_ACTUAL_ALARM] = ALARM_NONE;
-            // Serial.println("INICIANDO PROCESSO - STEP 1");             
+            Serial.println("INICIANDO PROCESSO - STEP 1");             
+            timeout_blink_at_entry = millis();
+            timeout_part_at_entry = millis();
             step = 1;
         }
 
@@ -106,44 +97,58 @@ void taskConveyor(void *pvParameters)
                 digitalWrite(STATUS_MACHINE, LOW);
                 digitalWrite(STATUS_MOTOR, LOW);
                 
-                // Para todos os timers
-                timer_blink.stop();
-                timer_entry.stop();
-                timer_type.stop();
-                timer_exit.stop();
+                // Garante que todos os TONs estão resetados
+                if (ton_blink1.isEnabled() || ton_entry_part.isEnabled() || 
+                    ton_type_part.isEnabled() || ton_exit_part.isEnabled()) {
+                    ton_blink1.reset();
+                    ton_entry_part.reset();
+                    ton_type_part.reset();
+                    ton_exit_part.reset();
+                    Serial.println("Reset completo no estado 0");
+                }
+                timeout_part_type = millis();
+                timeout_part_at_entry = millis();
+                timeout_blink_at_entry = millis();
+                timeout_part_at_exit = millis();
                 break;
 
             case 1: // Aguarda chegada de peça na entrada
                 {
                     // Atualiza velocidade do motor (mas não movimenta ainda)
-                    int speed = map(analogRead(IN_SPEED_MOTOR), 0, 4095, 0, 255);
+                    int speed = map(analogRead(IN_SPEED_MOTOR), 0, 1023, 0, 255);
                     motor_conveyor.setSpeed(speed);
                     HREGS_MAP[OUT_SPEED_MOTOR] = speed;
                     motor_conveyor.Stop(); // Para na posição inicial
                     
                     // Pisca lâmpada status máquina - SOMENTE no step 1
-                    if (timer_blink.done()) {
+                    //if (ton_blink1.update(true))
+                    if (millis() - timeout_blink_at_entry >= 500)
+                    {
                         digitalWrite(STATUS_MACHINE, !digitalRead(STATUS_MACHINE));
-                        // Serial.println("STEP 1 - Piscando LED - Aguardando peça");
-                        // Não precisa reiniciar - é periódico automaticamente
+                        Serial.println("STEP 1 - Piscando LED - Aguardando peça");
+                        timeout_blink_at_entry = millis();
                     }
                     
-                    // Timer de timeout para entrada
-                    if (timer_entry.done()) {
+                    // Timer de timeout para entrada - SOMENTE quando aguardando peça
+                    //if (ton_entry_part.update(true)) {
+                    if (millis() - timeout_part_at_entry >= 3000)
+                    {
                         // Timer completou - timeout
-                        // Serial.println("TIMEOUT: Peça não chegou na entrada");
+                        Serial.println("TIMEOUT: Peça não chegou na entrada");
                         HREGS_MAP[OUT_ACTUAL_ALARM] = ALARM_TIMEOUT_ENTRADA_PECA;
                         digitalWrite(STATUS_MACHINE, LOW);
                         step = 0;
                     }
                     
-                    // Verifica se peça chegou - SEM condição de tempo
-                    if (btn_part_in_position.press()) {
-                        // Serial.println("PEÇA DETECTADA NA ENTRADA!");
+                    // Verifica se peça chegou
+                    //if (btn_part_in_position.press())
+                    if ((millis() - timeout_part_at_entry < 3000) && btn_part_in_position.press())
+                    {
+                        Serial.println("PEÇA DETECTADA NA ENTRADA!");
                         digitalWrite(STATUS_MACHINE, HIGH); // LED fixo
-                        timer_blink.stop(); // Para o blink
-                        timer_entry.stop(); // Para o timer de entrada
-                        timer_type.start(); // Inicia timer de tipo
+                        ton_blink1.reset(); // Para de piscar
+                        ton_entry_part.reset(); // Reseta timer de entrada
+                        timeout_part_type = millis();
                         step = 10;
                     }
                 }
@@ -152,7 +157,7 @@ void taskConveyor(void *pvParameters)
             case 10: // Aguarda classificação do tipo de peça
                 {
                     // Movimenta a esteira
-                    int speed = map(analogRead(IN_SPEED_MOTOR), 0, 4095, 0, 255);
+                    int speed = map(analogRead(IN_SPEED_MOTOR), 0, 1023, 0, 255);
                     motor_conveyor.setSpeed(speed);
                     motor_conveyor.Forward();
                     motor_conveyor.update();
@@ -160,36 +165,45 @@ void taskConveyor(void *pvParameters)
                     digitalWrite(STATUS_MOTOR, HIGH);
                     digitalWrite(STATUS_MACHINE, HIGH); // LED permanece aceso
 
+                    // Para o blink no step 10
+                    ton_blink1.reset();
+                    digitalWrite(STATUS_MACHINE, HIGH);
+
                     // Verifica tipo de peça
                     unsigned short part_detected = 0;
                     if (btn_is_part_type1.press()) {
-                        // Serial.println("PEÇA TIPO 1 DETECTADA");
+                        Serial.println("PEÇA TIPO 1 DETECTADA");
                         part_detected = 1;
                     }
                     else if (btn_is_part_type2.press()) {
-                        // Serial.println("PEÇA TIPO 2 DETECTADA");
+                        Serial.println("PEÇA TIPO 2 DETECTADA");
                         part_detected = 2;
                     }
                     else if (btn_is_part_type3.press()) {
-                        // Serial.println("PEÇA TIPO 3 DETECTADA");
+                        Serial.println("PEÇA TIPO 3 DETECTADA");
                         part_detected = 3;
                     }
 
                     // Timeout para detecção do tipo
-                    if (timer_type.done()) {
+                    //if (ton_type_part.update(true))
+                    if (millis() - timeout_part_type >= 3000)
+                    {
                         // Timeout ocorreu
-                        // Serial.println("TIMEOUT: Tipo de peça não detectado");
+                        Serial.println("TIMEOUT: Tipo de peça não detectado");
                         motor_conveyor.Stop();
                         digitalWrite(STATUS_MACHINE, LOW);
                         digitalWrite(STATUS_MOTOR, LOW);
                         HREGS_MAP[OUT_ACTUAL_ALARM] = ALARM_TIMEOUT_CHECAGEM_TIPO;
+                        ton_type_part.reset();
                         step = 0;
                     }
                     
-                    // Peça detectada com sucesso - SEM condição de tempo
-                    if (part_detected != 0) {
-                        // Serial.print("PEÇA CONFIRMADA: Tipo ");
-                        // Serial.println(part_detected);
+                    // Peça detectada com sucesso
+                    //if (part_detected != 0)
+                    if (part_detected != 0 && (millis() - timeout_part_type < 3000))
+                    {
+                        Serial.print("PEÇA CONFIRMADA: Tipo ");
+                        Serial.println(part_detected);
                         
                         // Incrementa contador
                         switch (part_detected) {
@@ -204,8 +218,8 @@ void taskConveyor(void *pvParameters)
                                 break;
                         }
                         
-                        timer_type.stop(); // Para o timer de tipo
-                        timer_exit.start(); // Inicia timer de saída
+                        ton_type_part.reset(); // Reseta timer de tipo
+                        timeout_part_at_exit = millis();
                         step = 20;
                     }
                 }
@@ -214,7 +228,7 @@ void taskConveyor(void *pvParameters)
             case 20: // Aguarda saída da peça
                 {
                     // Continua movimentação
-                    int speed = map(analogRead(IN_SPEED_MOTOR), 0, 4095, 0, 255);
+                    int speed = map(analogRead(IN_SPEED_MOTOR), 0, 1023, 0, 255);
                     motor_conveyor.setSpeed(speed);
                     motor_conveyor.Forward();
                     motor_conveyor.update();
@@ -223,22 +237,27 @@ void taskConveyor(void *pvParameters)
                     digitalWrite(STATUS_MACHINE, HIGH);
 
                     // Timeout para saída
-                    if (timer_exit.done()) {
-                        // Serial.println("TIMEOUT: Peça não saiu");
+                    //if (ton_exit_part.update(true))
+                    if (millis() - timeout_part_at_exit >= 3000)
+                    {
+                        Serial.println("TIMEOUT: Peça não saiu");
                         motor_conveyor.Stop();
                         digitalWrite(STATUS_MACHINE, LOW);
                         digitalWrite(STATUS_MOTOR, LOW);
                         HREGS_MAP[OUT_ACTUAL_ALARM] = ALARM_TIMEOUT_SAIDA_PECA;
+                        ton_exit_part.reset();
                         step = 0;
                     }
                     
-                    // Peça saiu com sucesso - SEM condição de tempo
-                    if (btn_part_in_exit.press()) {
-                        // Serial.println("PEÇA SAIU DA ESTEIRA - PROCESSO CONCLUÍDO");
+                    // Peça saiu com sucesso
+                    //if (btn_part_in_exit.press())
+                    if ((millis() - timeout_part_at_exit < 3000) && btn_part_in_exit.press())
+                    {
+                        Serial.println("PEÇA SAIU DA ESTEIRA - PROCESSO CONCLUÍDO");
                         motor_conveyor.Stop();
                         digitalWrite(STATUS_MACHINE, LOW);
                         digitalWrite(STATUS_MOTOR, LOW);
-                        timer_exit.stop(); // Para o timer de saída
+                        ton_exit_part.reset(); // Reseta timer de saída
                         step = 0;
                     }
                 }
