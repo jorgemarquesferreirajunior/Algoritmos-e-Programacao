@@ -30,7 +30,7 @@ float computegradient(Neuron *neuron, float(*costfunc)(float *, float *, uint32_
 
     *param = original; // restaura
 
-    return (cost_plus - cost_minus) / (2.0f * eps);
+    return (cost_plus - cost_minus) / (1.0f * eps);
 
 }
 

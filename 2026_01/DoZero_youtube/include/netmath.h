@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 float ident(float value);
+float sigmoid(float value);
 
 float mse(float * out_true, float * out_pred, uint32_t samplesize);
 
