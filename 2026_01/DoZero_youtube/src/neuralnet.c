@@ -1,10 +1,40 @@
 #include "neuralnet.h"
 #include "neuron.h"
+#include "utils.h"
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
+Net initnet(uint32_t *layers, uint32_t nlayers, float (*inactfunc)(float), float (*outactfunc)(float)){
+    Net net;
+    Neuron *prevlayer = NULL;
+    net.nout = layers[nlayers - 1];
 
+    for (uint32_t layer = 1; layer < nlayers; layer++){
+        uint32_t nconnections = layers[layer - 1];
+        uint32_t nneurons = layers[layer];
+        Neuron *currlayer = (Neuron *)malloc(sizeof(Neuron) * nneurons);
+
+        for (uint32_t nr = 0; nr < nneurons; nr++){
+            Neuron = neuron;
+            neuron.nconnections = nconnections;
+            neuron.conneurons = prevlayer;
+            layer < nlayer - 2 ? neuron.actfunc = inactfunc : outactfunc;
+            neuron.weights = (float *)malloc(sizeof(float) * nconnections);
+            
+            for (uint32_t w = 0; w < nconnections; w++){
+                neuron.weights[w] = randomize(-1.0f, 1.0f);
+            }
+            neuron.bias = randomize(-1.0f, 1.0f);
+            currlayer[nr] = neuron;
+        }
+        prevlayer = (Neuron *)malloc(sizeof(Neuron) * nneurons);
+        memcpy(prevlayer, currlayer, sizeof(Neuron) * nneurons);
+    }
+    net.outneurons = currlayer;
+    return net;
+}
 
 float computecost(Neuron neuron, float **inputs, float *out_true, float (*costfunc)(float *, float *, uint32_t), uint32_t samplesize){
     float *out_pred = (float *)malloc(sizeof(float) * samplesize);

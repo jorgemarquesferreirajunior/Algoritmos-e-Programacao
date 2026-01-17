@@ -3,13 +3,16 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-typedef struct {
+typedef struct Neuron Neuron;
+
+struct Neuron {
     float *weights;
     uint32_t nconnections;
     float bias;
     float (*actfunc)(float);
-} Neuron;
+    Neuron *conneurons;
+};
 
 float computeout(Neuron neuron, float *inputs);
-Neuron initneuron(float (*actfunc)(float), uint32_t nconnections);
+
 #endif // NEURON_H
