@@ -11,7 +11,8 @@ BIN     := bin
 LIB     := lib
 
 CC      := gcc
-CFLAGS  := -O3 -Wall -Wextra -I$(INCLUDE) -Wno-unused-parameter -lm
+CFLAGS  := -O3 -Wall -Wextra -I$(INCLUDE) -Wno-unused-parameter
+MFLAGS  := -lm
 AR      := ar
 ARFLAGS := rcs
 
@@ -35,7 +36,7 @@ $(OBJ)/%.o: $(SRC)/%.c $(INCLUDE)/%.h | dirs
 	$(CC) $(CFLAGS) $(DEFS) -c $< -o $@
 
 $(BIN)/%: $(APPS)/%.c $(LIBPATH) | dirs
-	$(CC) $(CFLAGS) $(DEFS) $< -L$(LIB) -led -o $@
+	$(CC) $(CFLAGS) $(DEFS) $< -L$(LIB) -led $(MFLAGS)  -o $@
 
 dirs:
 	mkdir -p $(OBJ) $(BIN) $(LIB)
