@@ -1,0 +1,4 @@
+statements      -> declaracoes
+surround        -> cercam
+quotes          -> aspas ("")
+whorthwhile     -> vale a pena
